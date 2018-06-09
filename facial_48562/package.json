@@ -1,0 +1,29 @@
+{
+  "name": "facial",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.html",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "window": {
+    "toolbar": false,
+    "width": 800,
+    "height": 500
+  },
+  "license": "ISC",
+  "dependencies": {
+    "async-series": "0.0.1",
+    "fs": "0.0.1-security",
+    "images": "^3.0.1",
+    "jimp": "^0.2.28",
+    "opn": "^5.1.0",
+    "pusher": "^1.5.1",
+    "pusher-client": "^1.1.0",
+    "series": "^0.3.3",
+    "tesseract.js": "^1.0.10",
+    "window-popup": "^1.1.0"
+  },
+  "js-flags": "--max-old-space-size=2047"
+}

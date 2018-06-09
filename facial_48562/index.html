@@ -1,0 +1,474 @@
+<!DOCTYPE html>
+<html>
+<head>
+
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+
+	<title>Facial Detection Batch Processing</title>
+
+
+</head>
+<body>
+<div>
+	<p style="text-align:center">Image Path: <input type="text" name="imagePath" id="imagePath" style="width:70%" /></p>
+	<!-- <p style="text-align:center"><span style="padding-right: 40px"><input type="checkbox" name="useApiBank" id="useApiBank" checked/> Use API Bank</span> | <span style="padding-left: 40px">Provide API&nbsp;&nbsp;&nbsp;<input type="text" name="apiToUse" id="apiToUse" style="width: 30%" /></span></p> -->
+	<p style="text-align: center"><button onclick="processImages()">Process</button></p>
+</div>
+<div style="width:100%;max-height: 500px;overflow-y: scroll;overflow-x: hidden" id="img_div">
+	
+</div>
+<div style="position: absolute;bottom: 0px;text-align: center;font-weight: bold;width: 100%">
+	<p style="width: 100%;text-align: center">Project 48652 Version 1.4.0</p>
+</div>
+
+	<script src="js/jquery.min.js" type="text/javascript"></script>
+	 <script src="js/pusher.min.js"></script> 
+	<script type="text/javascript">
+		var fs = require('fs');
+		var series = require('async-series');
+		var Jimp = require("jimp");
+		var popup = require('window-popup').windowPopup;
+		var images=[];
+		var apibank=[];
+		var config=[];
+		var api_ctr=0;
+		var ob={};
+		var ctrrr=0;
+		var batchCount=0;
+		var batchImgCount=0;
+		var batches=[];
+		var ctrBatch=0;
+	 $.getJSON( "config.json", function( data ) {
+      config=data;
+      });
+
+		// function processImages(){
+		// 	if($('#imagePath').val()!=''){
+		// 		fs.readdirSync($('#imagePath').val()).forEach(file => {
+		// 			images.push(file);
+		// 		});
+
+		// 		processEveryImage(0);
+		// 	}
+		// }
+
+		function processImages(){
+			if($('#imagePath').val()!=''){
+				fs.readdir($('#imagePath').val(), (err, files) => {
+					batchCount=files.length;
+				  	files.forEach(file => {
+
+						if(typeof ob[file] ==='undefined'){
+							ob[file]=[];
+						}
+						readPerBatch(file);
+						
+					});
+
+				});
+				//processEveryImage(0);
+			}
+		}
+
+		function readPerBatch(name){
+			var cxx=0;
+			var xxx=[];
+			fs.readdir($('#imagePath').val()+'\\'+name+'\\Images', (err, fx) => {
+				fx.forEach(ff => {
+					if(ff.indexOf('.jpg') > -1)
+					xxx.push(ff);
+					cxx++;
+					if(fx.length==cxx){
+						//ob[name]=xxx;
+						batches.push({'batch':name,'images':xxx});
+						ctrrr++;
+
+						if(ctrrr==batchCount){
+							inEveryBatch(0);
+							//processEveryImage(0);
+						}
+					}
+				});
+			});
+		}
+
+
+		function inEveryBatch(ctr){
+			if(ctr < batchCount){
+				$('#img_div').append('<p>'+batches[ctr]['batch']+'</p>');
+				images=batches[ctr]['images'];
+				ctrBatch=ctr;
+				processEveryImage(0);
+			}else{
+				alert('All Done');
+			}
+		}
+
+		function toDataUrl(url, callback) {
+		  var xhr = new XMLHttpRequest();
+		  xhr.onload = function() {
+		    var reader = new FileReader();
+		    reader.onloadend = function() {
+		      callback(reader.result);
+		    }
+		    reader.readAsDataURL(xhr.response);
+		  };
+		  xhr.open('GET', url);
+		  xhr.responseType = 'blob';
+		  xhr.send();
+		}
+
+		makeblob = function (dataURL) {
+            var BASE64_MARKER = ';base64,';
+            if (dataURL.indexOf(BASE64_MARKER) == -1) {
+                var parts = dataURL.split(',');
+                var contentType = parts[0].split(':')[1];
+                var raw = decodeURIComponent(parts[1]);
+                return new Blob([raw], { type: contentType });
+            }
+            var parts = dataURL.split(BASE64_MARKER);
+            var contentType = parts[0].split(':')[1];
+            var raw = window.atob(parts[1]);
+            var rawLength = raw.length;
+
+            var uInt8Array = new Uint8Array(rawLength);
+
+            for (var i = 0; i < rawLength; ++i) {
+                uInt8Array[i] = raw.charCodeAt(i);
+            }
+
+            return new Blob([uInt8Array], { type: contentType });
+        }
+
+		function b64toBlob(b64Data, contentType, sliceSize) {
+		  contentType = contentType || '';
+		  sliceSize = sliceSize || 512;
+
+		  var byteCharacters = atob(b64Data);
+		  var byteArrays = [];
+
+		  for (var offset = 0; offset < byteCharacters.length; offset += sliceSize) {
+		    var slice = byteCharacters.slice(offset, offset + sliceSize);
+
+		    var byteNumbers = new Array(slice.length);
+		    for (var i = 0; i < slice.length; i++) {
+		      byteNumbers[i] = slice.charCodeAt(i);
+		    }
+
+		    var byteArray = new Uint8Array(byteNumbers);
+
+		    byteArrays.push(byteArray);
+		  }
+
+		  var blob = new Blob(byteArrays, {type: contentType});
+		  return blob;
+		}
+
+		function base64_encode(file){
+			
+			fs.readFile(file,function(err,res){
+				
+				alert(JSON.stringify(res.toString('base64')));
+			});
+			
+			
+		}
+
+		function sortFaces(facess){
+
+
+			facess.sort(function(a, b){ 
+			    return a.topLeftY - b.topLeftY
+			    
+			});
+			var sorted2=[];
+			var sorted=[];
+			var ctr=0;
+			var first=facess[0];
+			var faces_final=[];
+			   	facess.forEach(function(v,k){
+			    if(((first.topLeftY - 100) < v.topLeftY) && ( v.topLeftY < (first.topLeftY + 100))){
+			       if(typeof(sorted2[ctr])==='undefined')
+			        sorted2[ctr]=[];
+
+			      sorted2[ctr].push(v);
+			      
+			    }else{
+			    
+			      ctr++;
+			      if(typeof(sorted2[ctr])==='undefined'){
+			        sorted2[ctr]=[];
+			        first=v;
+			      }
+			       
+			        
+
+			      sorted2[ctr].push(v);
+			    }
+		   	});
+		   sorted2.forEach(function(v,k){
+		    v.sort(function(a, b){ 
+		      return a.topLeftX - b.topLeftX
+		      
+		    });
+		    sorted.push(v);
+		    if(faces_final.length==0)
+		      faces_final=v;
+		    else
+		      faces_final=faces_final.concat(v);
+		   });
+
+		  
+   			return faces_final;
+   		}
+
+		var processEveryImage=function(ctr,repeat=false,cnt=0){
+			
+			var faceCnt=0;
+			if(ctr==images.length){
+			    $('#'+ctrBatch+'_'+ctr).text('************* All images done. Nothing follows ***************');
+				return;
+			}
+			if(images[ctr].split(".")[1] !='jpg'){
+
+				processEveryImage(ctr+1,false,0); 
+				return;
+			}
+			var imgs_url=$('#imagePath').val()+'\\'+batches[ctrBatch]['batch']+'\\Images\\'+images[ctr];
+
+			$('#img_div').append('<p>'+images[ctr]+' &nbsp;&nbsp;&nbsp;<span id="'+ctrBatch+'_'+ctr+'"></span></p>');
+
+		  	var fname=images[ctr].split(".")[0];
+		  	var b64 = '';
+		  	var ff = '';
+		  	var hasError=false;
+		  	var nofaces=false;
+		  	var obj = {
+			   ocr_result: [],
+			   faces:[]
+			};
+			  	
+			series([
+			   	function(done) {
+			   		if (!fs.existsSync($('#imagePath').val()+'\\'+batches[ctrBatch]['batch']+'\\Images\\'+fname+"_client.json")) {
+					    $.getJSON($('#imagePath').val()+'\\'+batches[ctrBatch]['batch']+'\\Images\\'+fname+".json", function( data ) {
+
+					    	if(typeof(data.imageId)!=='undefined'){
+						   		if(typeof(data.faces) !=='undefined'){
+						   			var fcount=data.faces.length;
+						   			if(fcount > 0){
+								   		data.faces.forEach(function(val,key){
+
+								   			var face={
+									   			name:'',
+									   			face_id:'',
+									   			attributes:{},
+									   			topLeftY:'',
+									   			topLeftX:'',
+									   			width:'',
+									   			height:'',
+									   			bottomRightX:'',
+									   			bottomRightY:''
+									   		};
+
+								   			face.name=val.name;
+								   			face.face_id=val.faceId;
+								   			face.topLeftX=parseFloat(val.boundingBox.topLeftX);
+								   			face.topLeftY=parseFloat(val.boundingBox.topLeftY);
+								   			face.width=parseFloat(val.boundingBox.width);
+								   			face.height=parseFloat(val.boundingBox.height);
+								   			face.bottomRightY=parseFloat(val.boundingBox.bottomRightY);
+								   			face.bottomRightX=parseFloat(val.boundingBox.bottomRightX);
+
+								   			obj.faces.push(face);
+
+								   			if(obj.faces.length==data.faces.length){
+								   				fs.rename($('#imagePath').val()+'\\'+batches[ctrBatch]['batch']+'\\Images\\'+fname+".json",$('#imagePath').val()+'\\'+batches[ctrBatch]['batch']+'\\Images\\'+fname+"_client.json",function(errs, stats){
+
+								   					fs.stat($('#imagePath').val()+'\\'+batches[ctrBatch]['batch']+'\\Images\\'+fname+'.json', function(err, stat){
+
+														     if(err == null) {
+
+														        fs.readFile($('#imagePath').val()+'\\'+batches[ctrBatch]['batch']+'\\Images\\'+fname+'.json', function readFileCallback(err, data2){
+
+															        if (err){
+															            console.log(err);
+															        } else {
+																        obj2 = JSON.parse(data2); 
+																        obj.ocr_result= obj2.ocr_result;
+															        }
+															        var xfaces=sortFaces(obj.faces);
+															        
+															        obj.faces = xfaces;
+															        var json = JSON.stringify(obj, null, 4); 
+															        fs.writeFile($('#imagePath').val()+'\\'+batches[ctrBatch]['batch']+'\\Images\\'+fname+'.json', json); 
+														    	});
+														    } else if(err.code == 'ENOENT') {
+														    	var xfaces=sortFaces(obj.faces);
+														    	
+																obj.faces = xfaces;
+														   
+														        var json = JSON.stringify(obj, null, 4);
+														        fs.writeFile($('#imagePath').val()+'\\'+batches[ctrBatch]['batch']+'\\Images\\'+fname+'.json', json);
+														    } else {
+														        console.log('Some other error: ', err.code);
+
+														    }
+													    });                 
+							                    	ff = '   Facial Detection and OCR done.   Face count: '+fcount;
+							                    	$('#'+ctrBatch+'_'+ctr).text(ff);
+							                    	done();
+
+								   				})
+								   				
+								   			}
+								   		});
+								   	}else{
+					                    $('#'+ctrBatch+'_'+ctr).text('No faces detected.');
+							   			nofaces=true;
+							   			done();
+								   	}
+						   		}else{
+				                    $('#'+ctrBatch+'_'+ctr).text('No faces detected.');
+				                    nofaces=true;
+						   			done();
+						   		}
+						   	}else{
+						   		$('#'+ctrBatch+'_'+ctr).text('Already batch processed.');
+						   		hasError=true;
+						   		done();
+						   	}
+
+
+
+					   	}) .fail(function(err) {
+						    if(err.statusText=='parsererror'){
+						    	if (!fs.existsSync($('#imagePath').val()+'\\'+batches[ctrBatch]['batch']+'\\Images\\error_jsons')){
+								    fs.mkdirSync($('#imagePath').val()+'\\'+batches[ctrBatch]['batch']+'\\Images\\error_jsons');
+								}
+								fs.rename($('#imagePath').val()+'\\'+batches[ctrBatch]['batch']+'\\Images\\'+fname+".json", $('#imagePath').val()+'\\'+batches[ctrBatch]['batch']+'\\Images\\error_jsons\\'+fname+".json", function (err) {
+							        if (err) {
+							            return;
+							        }
+							        $('#'+ctrBatch+'_'+ctr).text('Invalid json format');
+							        hasError=true;
+							        done();
+							    });
+						    	
+						    }else{
+						    	$('#'+ctrBatch+'_'+ctr).text(err.responseText.message);
+						    	hasError=true;
+						    	done();
+						    }
+						   
+						});
+					}else{
+						$('#'+ctrBatch+'_'+ctr).text('Already batch processed.');
+						hasError=true;
+						done();
+					}
+				
+				},
+				function(done) {
+
+				 	if(!nofaces && !hasError){
+				 		
+				 		fs.readFile(imgs_url,function(err,res){
+				 			b64=res.toString('base64');
+				            var params = {
+				                 // Request parameters
+				              language:'unk',
+				              detectOrientation:false
+				            };
+
+					        $.ajax({
+					            url: 'https://southeastasia.api.cognitive.microsoft.com/vision/v1.0/ocr?' + $.param(params),
+					            type: 'POST',
+					            beforeSend: function (xhrObj) {
+					                // Request headers
+					                xhrObj.setRequestHeader("Content-Type", "application/octet-stream");
+					                xhrObj.setRequestHeader("Ocp-Apim-Subscription-Key", config.microsoft_api_key);
+					                //$('#'+ctr).text('ocr... '+faceCnt);
+					          
+					            },
+					            processData: false,
+					            contentType: 'application/octet-stream',
+					            data: makeblob('data:image/jpeg;base64,'+b64)
+					        })
+					        .done(function(data) {
+					     		
+					         	var words=[];
+					          	data.regions.forEach(function(val,key){
+					              	val.lines.forEach(function(v,k){
+					                	v.words.forEach(function(m,n){
+					                      	var bboxx=m.boundingBox.split(",");
+					                      	if(/[a-z]/.test(m.text.toLowerCase())){
+						                      	if (/[»_‘.":?\-~]/.test(m.text)==false) {
+
+						                        	words.push({text:m.text,boundingbox:{x:bboxx[0],y:bboxx[1],width:bboxx[2],height:bboxx[3]}});
+						                    	}
+					                		}
+					            		});
+					              	});
+					         	});
+
+					           	fs.stat($('#imagePath').val()+'\\'+batches[ctrBatch]['batch']+'\\Images\\'+fname+'.json', function(err, stat){
+
+								    if(err == null) {
+
+								        fs.readFile($('#imagePath').val()+'\\'+batches[ctrBatch]['batch']+'\\Images\\'+fname+'.json', function readFileCallback(err, data){
+
+									        if (err){
+									            console.log(err);
+									        } else {
+										        obj2 = JSON.parse(data); 
+										        obj.faces= obj2.faces;
+									        }
+									        obj.ocr_result = words;
+									        var json = JSON.stringify(obj, null, 4); 
+									        fs.writeFile($('#imagePath').val()+'\\'+batches[ctrBatch]['batch']+'\\Images\\'+fname+'.json', json); 
+
+									        
+								    	});
+								    } else if(err.code == 'ENOENT') {
+								        obj.ocr_result = words;
+								   
+								        var json = JSON.stringify(obj, null, 4);
+								        fs.writeFile($('#imagePath').val()+'\\'+batches[ctrBatch]['batch']+'\\Images\\'+fname+'.json', json);
+
+								    } else {
+								        console.log('Some other error: ', err.code);
+
+								    }   
+					        	})
+				           		done();
+				       		})
+					        .fail(function(err) {
+					        	hasError=true;
+					        	$('#'+ctrBatch+'_'+ctr).text('ERROR: '+JSON.stringify(err));
+					        	done();
+					    	});  
+		   			 	});   
+		        	}else{
+		        		done();
+		        	}     
+	
+				},
+				function(done) {
+				   if((ctr+1) < images.length){
+						processEveryImage(ctr + 1);
+					}else{				
+						inEveryBatch(ctrBatch+1);
+					}
+				    
+				    
+				}
+			], function(err) {
+			  console.log(err.message) // "another thing" 
+			})
+	 
+		}
+	</script>
+</body>
+</html>
